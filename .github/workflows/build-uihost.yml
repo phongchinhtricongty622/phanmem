@@ -8,6 +8,13 @@ on:
       - 'STVB.UIHost.csproj'
       - 'verify-dll.ps1'
       - '.github/workflows/build-uihost.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'src/STVB.UIHost.cs'
+      - 'STVB.UIHost.csproj'
+      - 'verify-dll.ps1'
+      - '.github/workflows/build-uihost.yml'
 
 permissions:
   contents: read
