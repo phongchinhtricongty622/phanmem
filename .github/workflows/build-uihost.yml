@@ -1,0 +1,60 @@
+name: Build STVB UIHost DLL
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "stvb-uihost-ci" ]
+    paths:
+      - 'src/STVB.UIHost.cs'
+      - 'STVB.UIHost.csproj'
+      - 'verify-dll.ps1'
+      - '.github/workflows/build-uihost.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'src/STVB.UIHost.cs'
+      - 'STVB.UIHost.csproj'
+      - 'verify-dll.ps1'
+      - '.github/workflows/build-uihost.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore reference assemblies
+        shell: pwsh
+        run: msbuild STVB.UIHost.csproj /t:Restore /p:RestorePackagesConfig=true
+
+      - name: Build deterministic WPF COM DLL
+        shell: pwsh
+        run: msbuild STVB.UIHost.csproj /t:Rebuild /p:Configuration=Release /p:Platform=AnyCPU /p:ContinuousIntegrationBuild=true /m
+
+      - name: Verify binary contract
+        shell: pwsh
+        run: ./verify-dll.ps1 -Dll ./bin/Release/STVB.UIHost.dll -Report ./bin/Release/STVB.UIHost.VERIFY.txt
+
+      - name: Write SHA-256
+        shell: pwsh
+        run: |
+          $h=(Get-FileHash ./bin/Release/STVB.UIHost.dll -Algorithm SHA256).Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText('./bin/Release/STVB.UIHost.dll.sha256.txt', $h + '  STVB.UIHost.dll' + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+          Write-Host ('DLL_SHA256='+$h)
+
+      - name: Upload frozen DLL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: STVB-UIHost-PREBUILT
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            bin/Release/STVB.UIHost.dll
+            bin/Release/STVB.UIHost.pdb
+            bin/Release/STVB.UIHost.dll.sha256.txt
+            bin/Release/STVB.UIHost.VERIFY.txt
